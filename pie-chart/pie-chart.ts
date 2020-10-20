@@ -78,7 +78,6 @@ class PieChart {
     private config?: PieConfig,
     private styles?: PieStyles
   ) {
-    console.log(this.config);
     this.setupSvg();
     this.draw();
   }
@@ -104,7 +103,6 @@ class PieChart {
     this.width = svgWidth - margin;
     this.height = svgHeight - margin;
     this.radius = Math.min(this.width, this.height) / 2 - margin;
-    console.log(this.height);
   }
 
   private setupGroups(): void {
@@ -117,8 +115,10 @@ class PieChart {
   }
 
   private setupData(): void {
-    const pie = d3.pie().value((datum: any) => datum.value);
-    this.pieData = pie(this.data);
+    const pieGenerator = d3.pie()
+      .value((datum: any) => datum.value)
+      .sort(null);
+    this.pieData = pieGenerator(this.data);
   }
 
   private drawSegments(): void {
@@ -126,7 +126,7 @@ class PieChart {
       .innerRadius(0)
       .outerRadius(this.radius);
 
-    const segment = this.svg.select('.pie-content')
+    const segments = this.svg.select('.pie-content')
       .selectAll('path.segment')
       .data(this.pieData)
       .enter()
@@ -137,25 +137,44 @@ class PieChart {
       .attr('stroke', () => this.styles?.segmentStrokeColor || '#FFFFFF')
       .style('stroke-width', () => (this.styles?.segmentStrokeWidth || 3) + 'px')
 
+    segments.transition()
+      .ease(d3.easeLinear)
+      .duration(1200)
+      .attrTween("d", datum => this.segmentTween(datum, arc));
+
     if (!this.config.disableHover) {
-      segment
-        .on('mouseover', this.handleMouseOver)
-        .on('mouseout', this.handleMouseOut);
+      segments
+        .on('mouseover', (d, i, n) => this.handleMouseOver(d, i, n, this.styles))
+        .on('mouseout', (d, i, n) => this.handleMouseOut(d, i, n, this.styles));
     }
   }
 
-  private handleMouseOver(datum: any, index: number, nodes: any[]): void {
-    d3.select(nodes[index])
-      .transition()
-      .duration(100)
-      .attr('fill', datum => datum.data?.hoverColor || this.styles?.segmentHoverFillColor || '#188B87');
+  private segmentTween(datum: any, arc: any): any {
+    return t => {
+      const angleInterpolation = d3.interpolate(0, 2 * Math.PI);
+      const currentAngle = angleInterpolation(t);
+      const originalEnd = datum.endAngle;
+
+      if (currentAngle < datum.startAngle) {
+        return "";
+      }
+      datum.endAngle = Math.min(currentAngle, originalEnd);
+      return arc(datum);
+    };
   }
 
-  private handleMouseOut(datum: any, index: number, nodes: any[]): void {
+  private handleMouseOver(datum: any, index: number, nodes: any[], styles): void {
     d3.select(nodes[index])
       .transition()
       .duration(100)
-      .attr('fill', datum => datum.data?.color || this.styles?.segmentFillColor || '#E9EAEF');
+      .attr('fill', datum => datum.data?.hoverColor || styles?.segmentHoverFillColor || '#188B87');
+  }
+
+  private handleMouseOut(datum: any, index: number, nodes: any[], styles): void {
+    d3.select(nodes[index])
+      .transition()
+      .duration(100)
+      .attr('fill', datum => datum.data?.color || styles?.segmentFillColor || '#E9EAEF');
   }
 
 }
@@ -164,45 +183,45 @@ const pieData: PieData[] = [
   {
     label: 'Red',
     value: 5,
-    color: 'red'
+    // color: 'red'
   },
   {
     label: 'Blue',
     value: 10,
-    color: 'blue'
+    // color: 'blue'
   },
   {
     label: 'Purple',
     value: 15,
-    color: 'purple'
+    // color: 'purple'
   },
   {
     label: 'Green',
     value: 20,
-    color: 'green',
-    hoverColor: 'blue'
+    // color: 'green',
+    // hoverColor: 'blue'
   },
   {
     label: 'Yellow',
     value: 25,
-    color: 'yellow'
+    // color: 'yellow'
   }
 ]
 
 const pieConfig: PieConfig = {
   margin: 5,
-  disableHover: true
+  disableHover: false
 }
 
 const pieStyles: PieStyles = {
-  segmentFillColor: '',
-  segmentStrokeColor: '',
+  segmentFillColor: 'dodgerblue',
+  segmentHoverFillColor: 'blue',
+  segmentStrokeColor: 'white',
   segmentStrokeWidth: 3
 }
 
-const pieChart = new PieChart('#pie-chart', pieData, pieConfig);
+const pieChart = new PieChart('#pie-chart', pieData, pieConfig, pieStyles);
 
 window.addEventListener('resize', () => {
-  console.log('Here');
   pieChart.draw();
 });
