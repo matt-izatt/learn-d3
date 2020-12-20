@@ -150,11 +150,10 @@ class PieChart {
   }
 
   private segmentTween(datum: any, arc: any): any {
+    const angleInterpolation = d3.interpolate(0, 2 * Math.PI);
+    const originalEnd = datum.endAngle;
     return t => {
-      const angleInterpolation = d3.interpolate(0, 2 * Math.PI);
       const currentAngle = angleInterpolation(t);
-      const originalEnd = datum.endAngle;
-
       if (currentAngle < datum.startAngle) {
         return "";
       }
